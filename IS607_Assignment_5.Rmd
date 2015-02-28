@@ -1,0 +1,95 @@
+---
+title: "IS 607 Assignment 5"
+author: "Derek G. Nokes"
+date: "Friday, February 27, 2015"
+output: pdf_document
+toc: yes
+---
+
+\pagebreak
+
+## Connect to PostgreSQL
+We connect to the PostgreSQL database as follows:
+
+```{r}
+# load the RPostgreSQL library
+library('RPostgreSQL')
+
+# connect to PoststgreSQL using RPostgreSQL
+driverHandle <- dbDriver("PostgreSQL")
+ 
+# establish connection to 'flights' database
+connectionHandle <- dbConnect(driverHandle, 
+                              dbname="flights",
+                              host="localhost",
+                              port=5432,user="postgres",
+                              password  ="tgdnrx78")
+```
+
+## Query PostgreSQL
+
+We extract the flights data from any of the three major NYC airports to 'Los Angeles Intl' airport during the period between 2013-01-23 and 2013-03-01 and includes the 
+following information:
+
+* Date of Departure: d_date
+* Hour of departure: hour
+* Airport of origin: o_airport
+* Airport of destination: d_airport
+* Carrier: carrier
+* Approximate temperature at scheduled time of departure: d_temp
+* Departure delay (in minutes): d_delay
+* Arrival delay (in minutes): a_delay
+* Air time (in minutes): air_time
+* Seating capacity of the airplane: seating 
+
+```{r}
+# build the query (join the flights,planes,airports,and weather tables)
+query<-"SELECT (f.year::text || '-' || f.month::text || '-' || f.day::text)::date 
+as d_date,w.hour,o.name as o_airport,d.name as d_airport,
+f.carrier,w.temp as d_temp,
+f.dep_delay as d_delay,arr_delay as a_delay,air_time,
+p.seats as seating FROM flights f
+INNER JOIN (SELECT * FROM planes) p ON f.tailnum = p.tailnum
+INNER JOIN (SELECT * FROM airports) d ON f.dest =d.faa
+INNER JOIN (SELECT * FROM airports) o ON f.origin = o.faa
+INNER JOIN (SELECT concat_ws('-',weather.year,weather.month,
+weather.day,weather.hour) as w_date_hour,weather.* FROM weather) w 
+ON concat_ws('-',f.year,f.month,f.day,f.hour) = w.w_date_hour AND 
+f.origin = w.origin
+WHERE (d.name='Los Angeles Intl')
+AND ((f.year::text || '-' || f.month::text || '-' || f.day::text)::date 
+BETWEEN '2013-02-23' AND '2013-03-01')"
+# execute the query
+data<-dbGetQuery(connectionHandle,query)
+```
+
+## Data Frame Object Properties
+
+We can look at the properties of the data frame as follows:
+
+```{r}
+# look at the characteristics of the data data.frame object
+str(data)
+# look at the first 10 rows of the data frame
+head(data,10)
+
+```
+
+## Data Frame Contents
+The following data table contains the data:
+
+```{r}
+# creat the table
+knitr::kable(data, caption = 'NYC flights to Los Angeles Intl Between 2013-02-23 and 2013-03-01')
+```
+
+## Disconnect From PostgreSQL
+
+Disconnect from the database:
+
+```{r}
+# Close PostgreSQL connection 
+dbDisconnect(connectionHandle)
+```
+
+
